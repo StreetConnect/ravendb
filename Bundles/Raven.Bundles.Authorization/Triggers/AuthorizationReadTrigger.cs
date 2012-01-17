@@ -34,7 +34,7 @@ namespace Raven.Bundles.Authorization.Triggers
 				var isAllowed = AuthorizationDecisions.IsAllowed(user, operation, key, metadata, sw.WriteLine);
 				if (isAllowed)
 					return ReadVetoResult.Allowed;
-				return readOperation == ReadOperation.Query ?
+				return readOperation == ReadOperation.Query || readOperation == ReadOperation.Load ?
 					ReadVetoResult.Ignore :
 					ReadVetoResult.Deny(sw.GetStringBuilder().ToString());
 			}
