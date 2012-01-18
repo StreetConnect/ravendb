@@ -13,6 +13,10 @@ using System.Net;
 using System.Text;
 using Newtonsoft.Json;
 using Raven.Json.Linq;
+using Raven.Client.Document;
+using Raven.Client.Extensions;
+using Raven.Client.Connection;
+using Raven.Client;
 
 namespace Raven.Smuggler
 {
@@ -20,47 +24,53 @@ namespace Raven.Smuggler
 	{
 		static void Main(string[] args)
 		{
-			if (args.Length < 3 || args[0] != "in" && args[0] != "out")
-			{
-				Console.WriteLine(@"
-Raven Smuggler - Import/Export utility
-Usage:
-	- Import the dump.raven file to a local instance:
-		Raven.Smuggler in http://localhost:8080/ dump.raven
-	- Export a local instance to dump.raven:
-		Raven.Smuggler out http://localhost:8080/ dump.raven
+            string url = "http://raven.uat.streetconnect.com:8080";
+            string operation = "in";
+            var documentStore = new DocumentStore { Url = url };
+            documentStore.Initialize();
+            try
+            {
+                switch (operation)
+                {
+                    case "in":
+                        foreach (var backup in Directory.EnumerateFiles(AppDomain.CurrentDomain.SetupInformation.ApplicationBase, "*.dump"))
+                        {
+                            var database = Path.GetFileNameWithoutExtension(backup);
+                            documentStore.DatabaseCommands.EnsureDatabaseExists(database);
+                            var instanceUrl = url.Databases() + database + "/";
+                            ImportData(instanceUrl, backup);
+                        }
+                        break;
+                    case "out":
 
-	  Optional arguments (after required arguments): 
-			--only-indexes : exports only index definitions
-			--include-attachments : also export attachments
-");
+                        List<string> databases;
+                        using (IDocumentSession session = documentStore.OpenSession())
+                        {
+                            databases = session.Advanced.DatabaseCommands.GetDatabaseNames().ToList();
+                        }
 
-				Environment.Exit(-1);
-			}
+                        foreach (string database in databases)
+                        {
+                            string databaseFileName = database + ".dump";
+                            string instanceUrl = url.Databases() + database + "/";
+                            bool exportIndexesOnly = false;
+                            bool inlcudeAttachments = true;
+                            ExportData(new ExportSpec(instanceUrl, databaseFileName, exportIndexesOnly,
+                                                      inlcudeAttachments));
+                        }
 
-			try
-			{
-				var instanceUrl = args[1];
-				if (instanceUrl.EndsWith("/") == false)
-					instanceUrl += "/";
-				var file = args[2];
-				switch (args[0])
-				{
-					case "in":
-						ImportData(instanceUrl, file);
-						break;
-					case "out":
-						bool exportIndexesOnly = args.Any(arg => arg.Equals("--only-indexes"));
-						bool inlcudeAttachments = args.Any(arg => arg.Equals("--include-attachments"));
-						ExportData(new ExportSpec(instanceUrl, file, exportIndexesOnly, inlcudeAttachments));
-						break;
-				}
-			}
-			catch (Exception e)
-			{
-				Console.WriteLine(e);
-				Environment.Exit(-1);
-			}
+                        break;
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                Environment.Exit(-1);
+            }
+            finally
+            {
+                documentStore.Dispose();
+            }
 		}
 
 		public class ExportSpec
