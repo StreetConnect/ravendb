@@ -201,6 +201,7 @@ namespace Raven.Database.Extensions
 
 		public static void SetStatusToNotFound(this IHttpContext context)
 		{
+            NLog.LogManager.GetCurrentClassLogger().Info("Setting 'HTTP 404 - Not Found' status");
 			context.Response.StatusCode = 404;
 			context.Response.StatusDescription = "Not Found";
 		}
