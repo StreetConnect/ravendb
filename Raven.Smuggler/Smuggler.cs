@@ -20,12 +20,23 @@ using Raven.Client;
 
 namespace Raven.Smuggler
 {
-	public class Smuggler
+    using System.Configuration;
+
+    public class Smuggler
 	{
 		static void Main(string[] args)
 		{
-            string url = "http://raven.uat.streetconnect.com:8080";
-            string operation = "in";
+            string url = ConfigurationManager.AppSettings["RavenConnectionString"];
+            if (args.Length > 1)
+            {
+                url = args[1];
+            }
+            string operation = "out";
+            if (args.Length > 0)
+            {
+                operation = args[0];
+            }
+            
             var documentStore = new DocumentStore { Url = url };
             documentStore.Initialize();
             try
